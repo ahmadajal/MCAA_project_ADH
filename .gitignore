@@ -14,3 +14,5 @@ __pypackages__/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+__pycache__/
