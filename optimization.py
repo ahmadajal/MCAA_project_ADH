@@ -5,6 +5,7 @@ import numpy as np
 import scipy
 import scipy as sp
 import scipy.stats as st
+from scipy.spatial import ConvexHull
 
 import tqdm
 import tqdm.notebook
@@ -39,9 +40,15 @@ def compute_beta(N0, N1, f0, f1, epsilon):
 
 
 def objective_function(N, l, cities, selected_cities, pairwise_distances):
-    max_area = np.pi / 4 * np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
-    f = np.sum(selected_cities * cities.v) - l * N * max_area
-    return -f
+
+    selected_cities_pos = cities.x[selected_cities == 1, :]
+    if pairwise_distances is not None:
+        max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
+    else:
+        # Compute the maximum distance by computing the distances over the convex hull vertices
+        max_distance = np.max(scipy.spatial.distance.pdist(
+            selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :], 'sqeuclidean'))
+    return -np.sum(selected_cities * cities.v) + l * N * max_distance * np.pi / 4
 
 
 def step(N, cities, selected_cities_i, current_loss_value, beta, l, pairwise_distances, mutation_strategy=0):
@@ -57,14 +64,21 @@ def step(N, cities, selected_cities_i, current_loss_value, beta, l, pairwise_dis
         return (selected_cities_k, new_loss_value) if np.random.rand() < a_ik else (selected_cities_i, current_loss_value)
 
 
-def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5):
+def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False):
     """mutation_strategy = 0: Original mutation proposed by Heloise
        mutation_strategy = 1: Simple strategy which just randomly tries to flip cities
-       initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)"""
+       initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)
+
+       precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
+       """
 
     N = cities.x.shape[0]
     selected_cities = (np.random.rand(N) <= initial_selection_probability).astype(np.int32)
-    pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
+    if precompute_pairwise_dist:
+        pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
+    else:
+        pairwise_distances = None
+
     fs = np.zeros(n_iter)
     current_loss_value = objective_function(N, l, cities, selected_cities, pairwise_distances)
     for m in tqdm.notebook.tqdm(range(n_iter)):
