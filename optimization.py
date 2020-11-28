@@ -64,7 +64,7 @@ def step(N, cities, selected_cities_i, current_loss_value, beta, l, pairwise_dis
         return (selected_cities_k, new_loss_value) if np.random.rand() < a_ik else (selected_cities_i, current_loss_value)
 
 
-def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False):
+def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
     """mutation_strategy = 0: Original mutation proposed by Heloise
        mutation_strategy = 1: Simple strategy which just randomly tries to flip cities
        initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)
@@ -80,13 +80,23 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         pairwise_distances = None
 
     fs = np.zeros(n_iter)
+    all_selected_cities = []
     current_loss_value = objective_function(N, l, cities, selected_cities, pairwise_distances)
-    for m in tqdm.notebook.tqdm(range(n_iter)):
-        fs[m] = current_loss_value
-        selected_cities, current_loss_value = step(
-            N, cities, selected_cities, current_loss_value, beta, l, pairwise_distances,
-            mutation_strategy=mutation_strategy)
-    return selected_cities, fs
+    if verbose:
+        for m in tqdm.notebook.tqdm(range(n_iter)):
+            fs[m] = current_loss_value
+            selected_cities, current_loss_value = step(
+                N, cities, selected_cities, current_loss_value, beta, l, pairwise_distances,
+                mutation_strategy=mutation_strategy)
+            all_selected_cities.append(selected_cities)
+    else:
+        for m in range(n_iter):
+            fs[m] = current_loss_value
+            selected_cities, current_loss_value = step(
+                N, cities, selected_cities, current_loss_value, beta, l, pairwise_distances,
+                mutation_strategy=mutation_strategy)
+            all_selected_cities.append(selected_cities)
+    return all_selected_cities, fs
 
 
 # Old code
