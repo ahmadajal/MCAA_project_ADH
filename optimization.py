@@ -39,8 +39,19 @@ def compute_beta(N0, N1, f0, f1, epsilon):
     return np.log(N1 / (epsilon * N0)) / (f1 - f0)
 
 
-def objective_function(N, l, cities, selected_cities, pairwise_distances):
 
+#indexing code from https://stackoverflow.com/a/36867493/2351867
+def elem_in_i_rows(i, n):
+    return i * (n - 1 - i) + (i*(i + 1))//2
+
+def condensed_to_square(k, n):
+    i = int(np.ceil((1/2.) * (- (-8*k + 4 * n**2 - 4*n - 7)**0.5 + 2*n - 1) - 1))
+    j = int(n - elem_in_i_rows(i + 1, n) + k)
+    return i, j
+
+
+# Original efficient objective evaluation, currently unused
+def objective_function_simple(N, l, cities, selected_cities, pairwise_distances):
     selected_cities_pos = cities.x[selected_cities == 1, :]
     if pairwise_distances is not None:
         max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
@@ -51,18 +62,81 @@ def objective_function(N, l, cities, selected_cities, pairwise_distances):
     return -np.sum(selected_cities * cities.v) + l * N * max_distance * np.pi / 4
 
 
-def step(N, cities, selected_cities_i, current_loss_value, beta, l, pairwise_distances, mutation_strategy=0):
+# This function computes the objective value given some current `state`
+# and new set selected_cities, changed at `change_idx`
+def objective_function_(N, l, cities, state, selected_cities, change_idx, pairwise_distances):
+    if pairwise_distances is not None:
+        max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
+    else:
+        selected_indices = np.where(selected_cities == 1)[0]
+        selected_cities_pos = cities.x[selected_indices, :]
+
+        if state is not None:
+            max_distance = state['max_dist']
+            max_indices = state['max_idx']
+            convex_hull = state['convex_hull']
+
+        # special cases for no or 2 cities being selected
+        if selected_cities_pos.shape[0] <= 1:
+            max_distance = 0
+            max_indices = (0, 0)
+            convex_hull = selected_cities_pos
+        elif selected_cities_pos.shape[0] == 2:
+            max_distance = np.sum((selected_cities_pos[0] - selected_cities_pos[1]) ** 2)
+            max_indices = (0, 1)
+            convex_hull = selected_cities_pos
+        elif (change_idx is not None) and (selected_cities[change_idx] == 1):
+            # Adding a vertex: Just need to compute its distance to all selected vertices
+            # to see if te maximum distance became larger
+            distances = np.sum((cities.x[change_idx] - selected_cities_pos) ** 2, axis=1)
+            max_dist_idx = np.argmax(distances)
+            max_distance_new = distances[max_dist_idx]
+            if max_distance_new > state['max_dist']:
+                max_distance = max_distance_new
+                max_indices = [change_idx, selected_indices[max_dist_idx]]
+        elif ((change_idx is not None) and (selected_cities[change_idx] == 0) and change_idx in state['max_idx']) or change_idx is None:
+            # Recompute distance either if we remove on of the vertices used in distance computation or
+            # if no change idx was defined (e.g. at the start of the algorithm)
+            # Compute the maximum distance by computing the distances over the convex hull vertices
+            convex_hull = ConvexHull(selected_cities_pos)
+            convex_hull_dists = scipy.spatial.distance.pdist(selected_cities_pos[convex_hull.vertices, :], 'sqeuclidean')
+            max_dist_idx = np.argmax(convex_hull_dists)
+            max_distance = convex_hull_dists[max_dist_idx]
+            convex_hull_indices = condensed_to_square(max_dist_idx, convex_hull.vertices.shape[0])
+            max_indices = [convex_hull.vertices[convex_hull_indices[0]], convex_hull.vertices[convex_hull_indices[1]]]
+            max_indices = [selected_indices[max_indices[0]], selected_indices[max_indices[1]]]
+            convex_hull = selected_cities_pos[convex_hull.vertices, :]
+
+    loss = -np.sum(selected_cities * cities.v) + l * N * max_distance * np.pi / 4
+    return loss, max_distance, max_indices, convex_hull
+
+
+def objective_function(N, l, cities, selected_cities, pairwise_distances):
+    return objective_function_(N, l, cities, None, selected_cities, None, pairwise_distances)
+
+
+def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
     k = np.random.randint(0, N)
     remove_city = np.random.rand() < 0.5
+
+    selected_cities_i = state['selected']
+    current_loss_value = state['loss_value']
     if (mutation_strategy == 0) and ((remove_city and selected_cities_i[k] == 0) or (not remove_city and selected_cities_i[k] == 1)):
-        return (selected_cities_i, current_loss_value)  # do nothing
+        return state # do nothing
     else:
         selected_cities_k = np.copy(selected_cities_i)
         selected_cities_k[k] = 1 - selected_cities_k[k]
-        new_loss_value = objective_function(N, l, cities, selected_cities_k, pairwise_distances)
+        new_loss_value, new_max_dist, new_max_idx, new_convex_hull = objective_function_(N, l, cities, state, selected_cities_k, k, pairwise_distances)
         a_ik = min(1, np.exp(-beta * (new_loss_value - current_loss_value)))
-        return (selected_cities_k, new_loss_value) if np.random.rand() < a_ik else (selected_cities_i, current_loss_value)
-
+        accepted = np.random.rand() < a_ik
+        new_state = {
+            'selected': selected_cities_k if accepted else state['selected'],
+            'loss_value': new_loss_value if accepted else state['loss_value'],
+            'max_dist': new_max_dist if accepted else state['max_dist'],
+            'max_idx': new_max_idx if accepted else state['max_idx'],
+            'convex_hull': new_convex_hull if accepted else state['convex_hull']
+        }
+        return new_state
 
 def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
     """mutation_strategy = 0: Original mutation proposed by Heloise
@@ -81,21 +155,22 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
 
     fs = np.zeros(n_iter)
     all_selected_cities = []
-    current_loss_value = objective_function(N, l, cities, selected_cities, pairwise_distances)
-    if verbose:
-        for m in tqdm.notebook.tqdm(range(n_iter)):
-            fs[m] = current_loss_value
-            selected_cities, current_loss_value = step(
-                N, cities, selected_cities, current_loss_value, beta, l, pairwise_distances,
-                mutation_strategy=mutation_strategy)
-            all_selected_cities.append(selected_cities)
-    else:
-        for m in range(n_iter):
-            fs[m] = current_loss_value
-            selected_cities, current_loss_value = step(
-                N, cities, selected_cities, current_loss_value, beta, l, pairwise_distances,
-                mutation_strategy=mutation_strategy)
-            all_selected_cities.append(selected_cities)
+    current_loss_value, max_dist, max_idx, convex_hull = objective_function_(N, l, cities, None, selected_cities, None, pairwise_distances)
+    it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
+
+    state = {
+        'selected': selected_cities,
+        'loss_value': current_loss_value,
+        'max_dist': max_dist,
+        'max_idx': max_idx,
+        'convex_hull': convex_hull,
+        # 'max_points': max_points,
+    }
+    for m in it:
+        fs[m] = state['loss_value']
+        state = step(N, cities, state, beta, l, pairwise_distances,
+            mutation_strategy=mutation_strategy)
+        all_selected_cities.append(state['selected'])
     return all_selected_cities, fs
 
 
