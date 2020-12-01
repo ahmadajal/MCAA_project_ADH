@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
 
 import numpy as np
 
@@ -39,7 +40,17 @@ def compute_beta(N0, N1, f0, f1, epsilon):
     return np.log(N1 / (epsilon * N0)) / (f1 - f0)
 
 
-
+#add points that are in the convex hull
+def adding_convex_points(N, l, cities,state):
+    convex_hull = state['convex_hull']
+    hull_path = Path(convex_hull)
+    is_in_hv=hull_path.contains_points(cities.x)
+    selected_cities=state['selected']
+    is_in_hv=(is_in_hv | (selected_cities == 1))*1 # for some known bug in the function, if points is a border is_in_hv can return false
+    max_distance=state['max_dist'] # not changed by adding points in convex hull
+    loss = -np.sum(is_in_hv * cities.v) + l * N * max_distance * np.pi / 4
+    return is_in_hv, loss
+    
 #indexing code from https://stackoverflow.com/a/36867493/2351867
 def elem_in_i_rows(i, n):
     return i * (n - 1 - i) + (i*(i + 1))//2
@@ -94,6 +105,8 @@ def objective_function_(N, l, cities, state, selected_cities, change_idx, pairwi
             if max_distance_new > state['max_dist']:
                 max_distance = max_distance_new
                 max_indices = [change_idx, selected_indices[max_dist_idx]]
+            convex_hull = ConvexHull(selected_cities_pos) #convex hull can change if a city is added
+            convex_hull = selected_cities_pos[convex_hull.vertices, :]
         elif ((change_idx is not None) and (selected_cities[change_idx] == 0) and change_idx in state['max_idx']) or change_idx is None:
             # Recompute distance either if we remove on of the vertices used in distance computation or
             # if no change idx was defined (e.g. at the start of the algorithm)
@@ -120,7 +133,7 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
     remove_city = np.random.rand() < 0.5
 
     selected_cities_i = state['selected']
-    current_loss_value = state['loss_value']
+    current_loss_value = state['loss_value']        
     if (mutation_strategy == 0) and ((remove_city and selected_cities_i[k] == 0) or (not remove_city and selected_cities_i[k] == 1)):
         return state # do nothing
     else:
@@ -170,8 +183,9 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         fs[m] = state['loss_value']
         state = step(N, cities, state, beta, l, pairwise_distances,
             mutation_strategy=mutation_strategy)
-        all_selected_cities.append(state['selected'])
-    return all_selected_cities, fs
+        all_selected_cities.append(state['selected']) 
+    all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
+    return all_selected_cities, all_selected_cities_convex,fs,fs_convex
 
 
 # Old code
