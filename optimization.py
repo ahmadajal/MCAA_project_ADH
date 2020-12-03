@@ -50,6 +50,13 @@ def adding_convex_points(N, l, cities,state):
     max_distance=state['max_dist'] # not changed by adding points in convex hull
     loss = -np.sum(is_in_hv * cities.v) + l * N * max_distance * np.pi / 4
     return is_in_hv, loss
+
+def adding_convex_points_loss(N, l, cities,selected_cities,convex_hull,max_distance):
+    hull_path = Path(convex_hull)
+    is_in_hv=hull_path.contains_points(cities.x)
+    is_in_hv=(is_in_hv | (selected_cities == 1))*1 # for some known bug in the function, if points is a border is_in_hv can return false
+    loss = -np.sum(is_in_hv * cities.v) + l * N * max_distance * np.pi / 4
+    return loss
     
 #indexing code from https://stackoverflow.com/a/36867493/2351867
 def elem_in_i_rows(i, n):
@@ -133,6 +140,8 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
     remove_city = np.random.rand() < 0.5
 
     selected_cities_i = state['selected']
+    if mutation_strategy==2: # flip
+        remove_city = (1-selected_cities_i[k])==0
     current_loss_value = state['loss_value']        
     if (mutation_strategy == 0) and ((remove_city and selected_cities_i[k] == 0) or (not remove_city and selected_cities_i[k] == 1)):
         return state # do nothing
@@ -140,7 +149,11 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
         selected_cities_k = np.copy(selected_cities_i)
         selected_cities_k[k] = 1 - selected_cities_k[k]
         new_loss_value, new_max_dist, new_max_idx, new_convex_hull = objective_function_(N, l, cities, state, selected_cities_k, k, pairwise_distances)
-        a_ik = min(1, np.exp(-beta * (new_loss_value - current_loss_value)))
+        if mutation_strategy==3 and (np.where(selected_cities_k == 1)[0]).shape[0]>3:
+            new_loss_value=adding_convex_points_loss(N, l, cities,selected_cities_k,new_convex_hull,new_max_dist)
+        a_ik=1
+        if new_loss_value>current_loss_value: #less computation
+            a_ik = np.exp(-beta * (new_loss_value - current_loss_value))
         accepted = np.random.rand() < a_ik
         new_state = {
             'selected': selected_cities_k if accepted else state['selected'],
@@ -186,6 +199,118 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         all_selected_cities.append(state['selected']) 
     all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
     return all_selected_cities, all_selected_cities_convex,fs,fs_convex
+
+
+def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
+    """mutation_strategy = 0: Original mutation proposed by Heloise
+       mutation_strategy = 1: Simple strategy which just randomly tries to flip cities
+       initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)
+
+       precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
+       """
+
+    N = cities.x.shape[0]
+    selected_cities=selected_cities_init
+    print("done")
+    if precompute_pairwise_dist:
+        pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
+    else:
+        pairwise_distances = None
+
+    fs = np.zeros(n_iter)
+    all_selected_cities = []
+    current_loss_value, max_dist, max_idx, convex_hull = objective_function_(N, l, cities, None, selected_cities, None, pairwise_distances)
+    it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
+
+    state = {
+        'selected': selected_cities,
+        'loss_value': current_loss_value,
+        'max_dist': max_dist,
+        'max_idx': max_idx,
+        'convex_hull': convex_hull,
+        # 'max_points': max_points,
+    }
+    for m in it:
+        fs[m] = state['loss_value']
+        state = step(N, cities, state, beta, l, pairwise_distances,
+            mutation_strategy=mutation_strategy)
+        all_selected_cities.append(state['selected']) 
+    all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
+    return all_selected_cities, all_selected_cities_convex,fs,fs_convex
+
+
+def number_min_city(cities,l):
+    N = cities.x.shape[0]
+    maxV=np.amax(cities.v)
+    convex_hull = ConvexHull(cities.x)
+    convex_hull_dists = scipy.spatial.distance.pdist(cities.x[convex_hull.vertices, :], 'sqeuclidean')
+    min_dist_idx = np.argmin(convex_hull_dists)
+    min_distance = convex_hull_dists[min_dist_idx]
+    k_min=l*N*np.pi*min_distance*min_distance/(4*maxV)
+    return k_min
+    
+    
+
+#------------------Old---------------------------
+
+def objectiveFunction_old(N, l, citiesV, selectedCities, pairwise_distances):
+    # Compute maximum area
+    max_area = np.pi / 4 * np.max(np.outer(selectedCities, selectedCities) * pairwise_distances)
+
+    # Compute final loss
+    f = np.sum(selectedCities * citiesV) - l * N * max_area
+    return -f
+
+def acceptancePb(selectedCities_i,selectedCities_j,beta,N,l,citiesV, pairwise_distances):
+    fi = objectiveFunction_old(N, l, citiesV, selectedCities_i, pairwise_distances)
+    fj = objectiveFunction_old(N, l, citiesV, selectedCities_j, pairwise_distances)
+    result = np.exp(-beta * (fj - fi))
+    return min(1, result)
+
+def step_old(N, citiesX, citiesV, selectedCities_i, beta, l, pairwise_distances):
+    k = np.random.randint(0, N);
+    if np.random.rand() < 0.5: # Remove a city
+        if selectedCities_i[k] == 0: # same state then before
+            return selectedCities_i # do nothing, it is accepted
+        else:
+            selectedCities_k = np.copy(selectedCities_i)
+            selectedCities_k[k] = 0 # city removed from set
+            a_ik = acceptancePb(selectedCities_i, selectedCities_k, beta, N, l, citiesV, pairwise_distances) 
+            if np.random.rand() < a_ik:
+                return selectedCities_k #accepted!
+            else:
+                return selectedCities_i #refused
+    else: # Add a city
+        if selectedCities_i[k] == 1: # do nothing, city already in set
+            return selectedCities_i
+        else:
+            selectedCities_k = np.copy(selectedCities_i)
+            selectedCities_k[k] = 1 # add city to set
+            #could of course be computed in a smarter way
+            a_ik = acceptancePb(selectedCities_i, selectedCities_k, beta, N, l, citiesV, pairwise_distances)
+            if np.random.rand() < a_ik:
+                return selectedCities_k #city added!
+            else:
+                return selectedCities_i #refused
+
+def optimize_old(cities, l, beta=100, n_iter=20000, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
+    N = cities.x.shape[0]
+    selected_cities = (np.random.rand(N) <= initial_selection_probability).astype(np.int32)
+    
+    pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
+    
+    
+    fs = np.zeros(n_iter) #keep record of objective function (in fact, minus objective function)
+    all_selected_cities = [] 
+    
+    it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
+    
+    for m in it:
+        fs[m] = objectiveFunction_old(N, l, cities.v, selected_cities, pairwise_distances)
+        selected_cities = step_old(N, cities.x, cities.v, selected_cities, beta, l, pairwise_distances)
+        all_selected_cities.append(selected_cities) 
+        
+    return all_selected_cities,fs
 
 
 # Old code
