@@ -10,6 +10,7 @@ from scipy.spatial import ConvexHull
 
 import tqdm
 import tqdm.notebook
+from sklearn.cluster import KMeans
 
 
 class DatasetGenerator(object):
@@ -33,6 +34,14 @@ class G2(DatasetGenerator):
     def refresh(self):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
+
+def find_most_dense_cluster(cities, n_cluster=10):
+    # Finds the cluster of cities with maximum density
+    kmeans = KMeans(n_clusters=n_cluster, max_iter=500)
+    kmeans.fit(cities.x)
+    density = [sum(cities.v[np.where(kmeans.labels_==k)[0]])/len(np.where(kmeans.labels_==k)[0]) for k in range(n_cluster)]
+    max_density_cities_idx = np.where(kmeans.labels_==np.argmax(density))[0]
+    return max_density_cities_idx
 
 
 # an optimal beta as said in the course, could be interesting to use it
