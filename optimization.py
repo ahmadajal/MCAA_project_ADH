@@ -329,6 +329,11 @@ def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=2
        precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
        """
 
+    return optimize(cities, l, beta=beta, n_iter=n_iter,
+                    mutation_strategy=mutation_strategy, initial_selection_probability=initial_selection_probability,
+                    precompute_pairwise_dist=precompute_pairwise_dist,
+                    verbose=verbose, selected_cities=selected_cities_init)
+
     N = cities.x.shape[0]
     selected_cities=selected_cities_init
 #     print("done")
