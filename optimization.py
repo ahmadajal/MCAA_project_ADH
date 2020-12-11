@@ -226,7 +226,7 @@ def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=2
 
     N = cities.x.shape[0]
     selected_cities=selected_cities_init
-    print("done")
+#     print("done")
     if precompute_pairwise_dist:
         pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
     else:
@@ -251,6 +251,50 @@ def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=2
             mutation_strategy=mutation_strategy)
         all_selected_cities.append(state['selected'])
     all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
+    return all_selected_cities, all_selected_cities_convex,fs,fs_convex
+
+
+def optimize_with_initialize_betas(cities, l, selected_cities_init, betas=[20,100], n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
+    """mutation_strategy = 0: Original mutation proposed by Heloise
+       mutation_strategy = 1: Simple strategy which just randomly tries to flip cities
+       initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)
+
+       precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
+       """
+
+    N = cities.x.shape[0]
+    selected_cities=selected_cities_init
+#     print("done")
+    if precompute_pairwise_dist:
+        pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
+    else:
+        pairwise_distances = None
+
+    fs = np.zeros(n_iter)
+    all_selected_cities = []
+    current_loss_value, max_dist, max_idx, convex_hull = objective_function_(N, l, cities, None, selected_cities, None, pairwise_distances)
+    n_iterbeta=n_iter//len(betas)
+#     print(n_iterbeta)
+    it = tqdm.notebook.tqdm(range(n_iterbeta)) if verbose else range(n_iterbeta)
+
+    state = {
+        'selected': selected_cities,
+        'loss_value': current_loss_value,
+        'max_dist': max_dist,
+        'max_idx': max_idx,
+        'convex_hull': convex_hull,
+        # 'max_points': max_points,
+    }
+    
+    for k in range (len(betas)):
+        beta=betas[k]
+#         print('beta'+str(beta))
+        for m in it:
+            fs[m+k*n_iterbeta] = state['loss_value']
+            state = step(N, cities, state, beta, l, pairwise_distances,
+                mutation_strategy=mutation_strategy)
+            all_selected_cities.append(state['selected'])
+        all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
     return all_selected_cities, all_selected_cities_convex,fs,fs_convex
 
 

@@ -11,6 +11,8 @@ import time
 import scipy
 from scipy import spatial
 
+import itertools
+
 def bruteforce_sol(N, l, generator):
     # very inefficient solution: O(2^N)
     min_f = np.inf
