@@ -158,7 +158,19 @@ def objective_function(N, l, cities, selected_cities, pairwise_distances):
 
 
 def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
-    k = np.random.randint(0, N)
+    n_selected = np.sum(state['selected'])
+    if mutation_strategy == 4 and n_selected > 0 and np.random.rand() < 0.5:
+        # Randomly sample one of the selected cities
+        k = np.random.randint(0, n_selected)
+        sampled = np.where(state['selected'] == 1)[0][k]
+
+        tri = state['delaunay']
+        indptr, indices = tri.vertex_neighbor_vertices
+        # nn = np.append(indices[indptr[sampled]:indptr[sampled + 1]], [sampled]).ravel()
+        nn = indices[indptr[sampled]:indptr[sampled + 1]]
+        k = nn[np.random.randint(0, nn.shape[0])]
+    else:
+        k = np.random.randint(0, N)
     remove_city = np.random.rand() < 0.5
 
     selected_cities_i = state['selected']
@@ -183,7 +195,8 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
             'loss_value': new_loss_value if accepted else state['loss_value'],
             'max_dist': new_max_dist if accepted else state['max_dist'],
             'max_idx': new_max_idx if accepted else state['max_idx'],
-            'convex_hull': new_convex_hull if accepted else state['convex_hull']
+            'convex_hull': new_convex_hull if accepted else state['convex_hull'],
+            'delaunay': state['delaunay']
         }
         return new_state
 
@@ -225,6 +238,8 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         'convex_hull': convex_hull,
         # 'max_points': max_points,
     }
+    state['delaunay'] = scipy.spatial.Delaunay(cities.x) if  mutation_strategy == 4 else None
+
     for m in it:
         fs[m] = state['loss_value']
         state = step(N, cities, state, beta_fn(m), l, pairwise_distances,
