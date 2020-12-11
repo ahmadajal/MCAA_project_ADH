@@ -11,7 +11,7 @@ from scipy.spatial import ConvexHull
 import tqdm
 import tqdm.notebook
 from sklearn.cluster import KMeans
-
+import copy
 
 class DatasetGenerator(object):
     def __init__(self, N=100):
@@ -84,6 +84,17 @@ def condensed_to_square(k, n):
     return i, j
 
 
+def maximum_dist(cities_pos):
+    if cities_pos.shape[0] > 2:
+        max_distance = np.max(scipy.spatial.distance.pdist(
+            cities_pos[ConvexHull(cities_pos).vertices, :], 'sqeuclidean'))
+    elif cities_pos.shape[0] == 2:
+        max_distance = np.max(scipy.spatial.distance.pdist(cities_pos, 'sqeuclidean'))
+    else:
+        max_distance = 0.0
+
+    return max_distance
+
 # Original efficient objective evaluation, currently unused
 def objective_function_simple(N, l, cities, selected_cities, pairwise_distances):
     selected_cities_pos = cities.x[selected_cities == 1, :]
@@ -91,13 +102,7 @@ def objective_function_simple(N, l, cities, selected_cities, pairwise_distances)
         max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
     else:
         # Compute the maximum distance by computing the distances over the convex hull vertices
-        if selected_cities_pos.shape[0] > 2:
-            max_distance = np.max(scipy.spatial.distance.pdist(
-                selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :], 'sqeuclidean'))
-        elif selected_cities_pos.shape[0] == 2:
-            max_distance = np.max(scipy.spatial.distance.pdist(selected_cities_pos, 'sqeuclidean'))
-        else:
-            max_distance = 0.0
+        max_distance = maximum_dist(selected_cities_pos)
 
     return -np.sum(selected_cities * cities.v) + l * N * max_distance * np.pi / 4
 
@@ -159,6 +164,44 @@ def objective_function(N, l, cities, selected_cities, pairwise_distances):
 
 def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
     n_selected = np.sum(state['selected'])
+
+    if mutation_strategy == 5:
+        current_loss_value = state['loss_value']
+
+        # take a step for both position and radius
+
+        if np.random.rand() < 0.5:
+            if np.random.rand() < 0.95:
+                new_center = (state['center'] + np.random.randn(2) * 0.04) % 1
+            else:
+                new_center = (state['center'] + np.random.randn(2) * 0.2) % 1
+            new_radius = state['radius']
+        else:
+            new_center = state['center']
+            new_radius = np.maximum(0.01, state['radius'] + np.random.randn(1) * state['radius'] * 0.1)
+
+        # Compute all the cities inside the circle
+        selected_cities_k = (np.sum((cities.x - new_center) ** 2, axis=1) <= new_radius).astype(np.int32)
+
+        new_loss_value = objective_function_simple(N, l, cities, selected_cities_k, pairwise_distances)
+        if selected_cities_k.shape[0] == 0:
+            new_loss_value = np.inf
+
+        a_ik = 1
+        if new_loss_value > current_loss_value:
+            a_ik = np.exp(-beta * (new_loss_value - current_loss_value))
+        accepted = np.random.rand() < a_ik
+
+        new_state = copy.deepcopy(state)
+
+        if accepted:
+            new_state['selected'] = selected_cities_k
+            new_state['loss_value'] = new_loss_value
+            new_state['center'] = new_center
+            new_state['radius'] = new_radius
+
+        return new_state
+
     if mutation_strategy == 4 and n_selected > 0 and np.random.rand() < 0.5:
         # Randomly sample one of the selected cities
         k = np.random.randint(0, n_selected)
@@ -226,6 +269,14 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
 
     fs = np.zeros(n_iter)
     all_selected_cities = []
+
+    if mutation_strategy == 5:
+        initial_center = np.random.rand(2)
+        initial_radius = np.random.rand(1) * 0.03 + 0.2
+        # Compute all the cities inside the circle
+        selected_cities = (np.sum((cities.x - initial_center) ** 2, axis=1) <= initial_radius).astype(np.int32)
+
+
     current_loss_value, max_dist, max_idx, convex_hull = objective_function_(
         N, l, cities, None, selected_cities, None, pairwise_distances)
     it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
@@ -240,6 +291,10 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
     }
     state['delaunay'] = scipy.spatial.Delaunay(cities.x) if  mutation_strategy == 4 else None
 
+    if mutation_strategy == 5:
+        state['center'] = initial_center
+        state['radius'] = initial_radius
+
     for m in it:
         fs[m] = state['loss_value']
         state = step(N, cities, state, beta_fn(m), l, pairwise_distances,
@@ -252,7 +307,17 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         #         state['convex_hull'] = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
 
         all_selected_cities.append(state['selected'])
-    all_selected_cities_convex, fs_convex = adding_convex_points(N, l, cities, state)
+
+    if mutation_strategy == 5:
+        selected_cities_pos = cities.x[state['selected'] == 1, :]
+        if np.sum(state['selected']) >= 3:
+            state['convex_hull'] = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
+        state['max_dist'] = maximum_dist(selected_cities_pos)
+
+    if np.sum(state['selected']) >= 3:
+        all_selected_cities_convex, fs_convex = adding_convex_points(N, l, cities, state)
+    else:
+        all_selected_cities_convex, fs_convex = state['selected'], state['loss_value']
     return all_selected_cities, all_selected_cities_convex, fs, fs_convex
 
 
