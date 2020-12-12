@@ -67,6 +67,26 @@ def condensed_to_square(k, n):
     j = int(n - elem_in_i_rows(i + 1, n) + k)
     return i, j
 
+def square_to_condensed(i, j, n):
+    if i==j:
+        print('problem !')
+        print (i)
+    assert i != j, "no diagonal elements in condensed matrix"
+    if i < j:
+        i, j = j, i
+    return n*j - j*(j+1)//2 + i - 1 - j
+
+def square_to_condensed_list(I, J, n):
+    l=[]
+    for i in I:
+        for j in J: 
+            assert i != j, "no diagonal elements in condensed matrix"
+            i2,j2=i,j
+            if i < j:
+                i2, j2 = j, i
+            l.append(n*j2 - j2*(j2+1)//2 + i2 - 1 - j2)
+    return l
+
 
 # Original efficient objective evaluation, currently unused
 def objective_function_simple(N, l, cities, selected_cities, pairwise_distances):
@@ -90,7 +110,10 @@ def objective_function_simple(N, l, cities, selected_cities, pairwise_distances)
 # and new set selected_cities, changed at `change_idx`
 def objective_function_(N, l, cities, state, selected_cities, change_idx, pairwise_distances):
     if pairwise_distances is not None:
-        max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
+        table= np.outer(selected_cities, selected_cities) * pairwise_distances
+        max_distance = np.max(table)
+        max_indices = np.where(table == max_distance)
+        convex_hull=None
     else:
         selected_indices = np.where(selected_cities == 1)[0]
         selected_cities_pos = cities.x[selected_indices, :]
