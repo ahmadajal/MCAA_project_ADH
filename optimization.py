@@ -41,7 +41,9 @@ def find_most_dense_cluster(cities, n_cluster=10):
     kmeans.fit(cities.x)
     density = [sum(cities.v[np.where(kmeans.labels_==k)[0]])/len(np.where(kmeans.labels_==k)[0]) for k in range(n_cluster)]
     max_density_cities_idx = np.where(kmeans.labels_==np.argmax(density))[0]
-    return max_density_cities_idx
+    max_density_cluster_center = kmeans.cluster_centers_[np.argmax(density)]
+    max_radius = np.max(np.sqrt(np.sum((cities.x[max_density_cities_idx] - max_density_cluster_center)**2, axis=1)))
+    return max_density_cluster_center, max_radius, max_density_cities_idx
 
 
 # an optimal beta as said in the course, could be interesting to use it
@@ -395,6 +397,7 @@ def optimize_with_initialize_betas(cities, l, selected_cities_init, betas=[20,10
         'convex_hull': convex_hull,
         # 'max_points': max_points,
     }
+    state['delaunay'] = scipy.spatial.Delaunay(cities.x) if  mutation_strategy == 4 else None
 
     for k in range (len(betas)):
         beta=betas[k]
