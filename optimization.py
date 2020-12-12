@@ -10,7 +10,8 @@ from scipy.spatial import ConvexHull
 
 import tqdm
 import tqdm.notebook
-
+from sklearn.cluster import KMeans
+import copy
 
 class DatasetGenerator(object):
     def __init__(self, N=100):
@@ -34,6 +35,16 @@ class G2(DatasetGenerator):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
 
+def find_most_dense_cluster(cities, n_cluster=10):
+    # Finds the cluster of cities with maximum density
+    kmeans = KMeans(n_clusters=n_cluster, max_iter=500)
+    kmeans.fit(cities.x)
+    density = [sum(cities.v[np.where(kmeans.labels_==k)[0]])/len(np.where(kmeans.labels_==k)[0]) for k in range(n_cluster)]
+    max_density_cities_idx = np.where(kmeans.labels_==np.argmax(density))[0]
+    max_density_cluster_center = kmeans.cluster_centers_[np.argmax(density)]
+    max_radius = np.max(np.sqrt(np.sum((cities.x[max_density_cities_idx] - max_density_cluster_center)**2, axis=1)))
+    return max_density_cluster_center, max_radius, max_density_cities_idx
+
 
 # an optimal beta as said in the course, could be interesting to use it
 def compute_beta(N0, N1, f0, f1, epsilon):
@@ -41,17 +52,24 @@ def compute_beta(N0, N1, f0, f1, epsilon):
 
 
 #add points that are in the convex hull
-def adding_convex_points(N, l, cities,state):
+def adding_convex_points(N, l, cities, state):
     convex_hull = state['convex_hull']
     hull_path = Path(convex_hull)
-    is_in_hv=hull_path.contains_points(cities.x)
-    selected_cities=state['selected']
-    is_in_hv=(is_in_hv | (selected_cities == 1))*1 # for some known bug in the function, if points is a border is_in_hv can return false
-    max_distance=state['max_dist'] # not changed by adding points in convex hull
+    is_in_hv = hull_path.contains_points(cities.x)
+    selected_cities = state['selected']
+    # for some known bug in the function, if points is a border is_in_hv can return false
+    is_in_hv = (is_in_hv | (selected_cities == 1))*1
+    max_distance = state['max_dist']  # not changed by adding points in convex hull
     loss = -np.sum(is_in_hv * cities.v) + l * N * max_distance * np.pi / 4
     return is_in_hv, loss
 
 def adding_convex_points_loss(N, l, cities,selected_cities,convex_hull,max_distance):
+    # Delio: Recomputing all these quantities seems to fix the issues
+    # selected_cities_pos = cities.x[selected_cities == 1, :]
+    # convex_hull = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
+    # max_distance = np.max(scipy.spatial.distance.pdist(convex_hull, 'sqeuclidean'))
+
+
     hull_path = Path(convex_hull)
     is_in_hv=hull_path.contains_points(cities.x)
     is_in_hv=(is_in_hv | (selected_cities == 1))*1 # for some known bug in the function, if points is a border is_in_hv can return false
@@ -88,6 +106,17 @@ def square_to_condensed_list(I, J, n):
     return l
 
 
+def maximum_dist(cities_pos):
+    if cities_pos.shape[0] > 2:
+        max_distance = np.max(scipy.spatial.distance.pdist(
+            cities_pos[ConvexHull(cities_pos).vertices, :], 'sqeuclidean'))
+    elif cities_pos.shape[0] == 2:
+        max_distance = np.max(scipy.spatial.distance.pdist(cities_pos, 'sqeuclidean'))
+    else:
+        max_distance = 0.0
+
+    return max_distance
+
 # Original efficient objective evaluation, currently unused
 def objective_function_simple(N, l, cities, selected_cities, pairwise_distances):
     selected_cities_pos = cities.x[selected_cities == 1, :]
@@ -95,13 +124,7 @@ def objective_function_simple(N, l, cities, selected_cities, pairwise_distances)
         max_distance = np.max(np.outer(selected_cities, selected_cities) * pairwise_distances)
     else:
         # Compute the maximum distance by computing the distances over the convex hull vertices
-        if selected_cities_pos.shape[0] > 2:
-            max_distance = np.max(scipy.spatial.distance.pdist(
-                selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :], 'sqeuclidean'))
-        elif selected_cities_pos.shape[0] == 2:
-            max_distance = np.max(scipy.spatial.distance.pdist(selected_cities_pos, 'sqeuclidean'))
-        else:
-            max_distance = 0.0
+        max_distance = maximum_dist(selected_cities_pos)
 
     return -np.sum(selected_cities * cities.v) + l * N * max_distance * np.pi / 4
 
@@ -165,23 +188,74 @@ def objective_function(N, l, cities, selected_cities, pairwise_distances):
 
 
 def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
-    k = np.random.randint(0, N)
+    n_selected = np.sum(state['selected'])
+
+    if mutation_strategy == 5:
+        current_loss_value = state['loss_value']
+
+        # take a step for both position and radius
+
+        if np.random.rand() < 0.5:
+            if np.random.rand() < 0.95:
+                new_center = (state['center'] + np.random.randn(2) * 0.04) % 1
+            else:
+                new_center = (state['center'] + np.random.randn(2) * 0.2) % 1
+            new_radius = state['radius']
+        else:
+            new_center = state['center']
+            new_radius = np.maximum(0.01, state['radius'] + np.random.randn(1) * state['radius'] * 0.1)
+
+        # Compute all the cities inside the circle
+        selected_cities_k = (np.sum((cities.x - new_center) ** 2, axis=1) <= new_radius).astype(np.int32)
+
+        new_loss_value = objective_function_simple(N, l, cities, selected_cities_k, pairwise_distances)
+        if selected_cities_k.shape[0] == 0:
+            new_loss_value = np.inf
+
+        a_ik = 1
+        if new_loss_value > current_loss_value:
+            a_ik = np.exp(-beta * (new_loss_value - current_loss_value))
+        accepted = np.random.rand() < a_ik
+
+        new_state = copy.deepcopy(state)
+
+        if accepted:
+            new_state['selected'] = selected_cities_k
+            new_state['loss_value'] = new_loss_value
+            new_state['center'] = new_center
+            new_state['radius'] = new_radius
+
+        return new_state
+
+    if mutation_strategy == 4 and n_selected > 0 and np.random.rand() < 0.5:
+        # Randomly sample one of the selected cities
+        k = np.random.randint(0, n_selected)
+        sampled = np.where(state['selected'] == 1)[0][k]
+
+        tri = state['delaunay']
+        indptr, indices = tri.vertex_neighbor_vertices
+        # nn = np.append(indices[indptr[sampled]:indptr[sampled + 1]], [sampled]).ravel()
+        nn = indices[indptr[sampled]:indptr[sampled + 1]]
+        k = nn[np.random.randint(0, nn.shape[0])]
+    else:
+        k = np.random.randint(0, N)
     remove_city = np.random.rand() < 0.5
 
     selected_cities_i = state['selected']
-    if mutation_strategy==2: # flip
-        remove_city = (1-selected_cities_i[k])==0
+    if mutation_strategy == 2:  # flip
+        remove_city = (1 - selected_cities_i[k]) == 0
     current_loss_value = state['loss_value']
     if (mutation_strategy == 0) and ((remove_city and selected_cities_i[k] == 0) or (not remove_city and selected_cities_i[k] == 1)):
-        return state # do nothing
+        return state  # do nothing
     else:
         selected_cities_k = np.copy(selected_cities_i)
         selected_cities_k[k] = 1 - selected_cities_k[k]
-        new_loss_value, new_max_dist, new_max_idx, new_convex_hull = objective_function_(N, l, cities, state, selected_cities_k, k, pairwise_distances)
-        if mutation_strategy==3 and (np.where(selected_cities_k == 1)[0]).shape[0]>3:
-            new_loss_value=adding_convex_points_loss(N, l, cities,selected_cities_k,new_convex_hull,new_max_dist)
-        a_ik=1
-        if new_loss_value>current_loss_value: #less computation
+        new_loss_value, new_max_dist, new_max_idx, new_convex_hull = objective_function_(
+            N, l, cities, state, selected_cities_k, k, pairwise_distances)
+        if mutation_strategy == 3 and (np.where(selected_cities_k == 1)[0]).shape[0] > 3:
+            new_loss_value = adding_convex_points_loss(N, l, cities, selected_cities_k, new_convex_hull, new_max_dist)
+        a_ik = 1
+        if new_loss_value > current_loss_value:  # less computation
             a_ik = np.exp(-beta * (new_loss_value - current_loss_value))
         accepted = np.random.rand() < a_ik
         new_state = {
@@ -189,20 +263,30 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
             'loss_value': new_loss_value if accepted else state['loss_value'],
             'max_dist': new_max_dist if accepted else state['max_dist'],
             'max_idx': new_max_idx if accepted else state['max_idx'],
-            'convex_hull': new_convex_hull if accepted else state['convex_hull']
+            'convex_hull': new_convex_hull if accepted else state['convex_hull'],
+            'delaunay': state['delaunay']
         }
         return new_state
 
-def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
+
+def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True, selected_cities=None):
     """mutation_strategy = 0: Original mutation proposed by Heloise
        mutation_strategy = 1: Simple strategy which just randomly tries to flip cities
        initial_selection_probability: Probablity at which a city initially is selected (0.5: every city can be selected with 50% chance)
 
        precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
+	selected_cities: Allows to pass in an initial selection of cities
        """
+    # Allow beta to be a function depending on the iteration count i
+    if not callable(beta):
+        def beta_fn(i): return beta
+    else:
+        beta_fn = beta
 
     N = cities.x.shape[0]
-    selected_cities = (np.random.rand(N) <= initial_selection_probability).astype(np.int32)
+    if selected_cities is None:
+        selected_cities = (np.random.rand(N) <= initial_selection_probability).astype(np.int32)
+
     if precompute_pairwise_dist:
         pairwise_distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cities.x, 'sqeuclidean'))
     else:
@@ -210,7 +294,16 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
 
     fs = np.zeros(n_iter)
     all_selected_cities = []
-    current_loss_value, max_dist, max_idx, convex_hull = objective_function_(N, l, cities, None, selected_cities, None, pairwise_distances)
+
+    if mutation_strategy == 5:
+        initial_center = np.random.rand(2)
+        initial_radius = np.random.rand(1) * 0.03 + 0.2
+        # Compute all the cities inside the circle
+        selected_cities = (np.sum((cities.x - initial_center) ** 2, axis=1) <= initial_radius).astype(np.int32)
+
+
+    current_loss_value, max_dist, max_idx, convex_hull = objective_function_(
+        N, l, cities, None, selected_cities, None, pairwise_distances)
     it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
 
     state = {
@@ -221,13 +314,36 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
         'convex_hull': convex_hull,
         # 'max_points': max_points,
     }
+    state['delaunay'] = scipy.spatial.Delaunay(cities.x) if  mutation_strategy == 4 else None
+
+    if mutation_strategy == 5:
+        state['center'] = initial_center
+        state['radius'] = initial_radius
+
     for m in it:
         fs[m] = state['loss_value']
-        state = step(N, cities, state, beta, l, pairwise_distances,
-            mutation_strategy=mutation_strategy)
+        state = step(N, cities, state, beta_fn(m), l, pairwise_distances,
+                     mutation_strategy=mutation_strategy)
+
+        # Delio: Recomputing the convex_hull for strategy 3 seems to fix some issues?
+        # if mutation_strategy == 3:
+        #     selected_cities_pos = cities.x[state['selected'] == 1, :]
+        #     if selected_cities_pos.shape[0] >= 3:
+        #         state['convex_hull'] = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
+
         all_selected_cities.append(state['selected'])
-    all_selected_cities_convex,fs_convex=adding_convex_points(N, l, cities,state)
-    return all_selected_cities, all_selected_cities_convex,fs,fs_convex
+
+    if mutation_strategy == 5:
+        selected_cities_pos = cities.x[state['selected'] == 1, :]
+        if np.sum(state['selected']) >= 3:
+            state['convex_hull'] = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
+        state['max_dist'] = maximum_dist(selected_cities_pos)
+
+    if np.sum(state['selected']) >= 3:
+        all_selected_cities_convex, fs_convex = adding_convex_points(N, l, cities, state)
+    else:
+        all_selected_cities_convex, fs_convex = state['selected'], state['loss_value']
+    return all_selected_cities, all_selected_cities_convex, fs, fs_convex
 
 
 def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=20000, mutation_strategy=0, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True):
@@ -237,6 +353,11 @@ def optimize_with_initialize(cities, l, selected_cities_init, beta=100, n_iter=2
 
        precompute_pairwise_dist: Enabling this gives slightly better performance, but has quadratic memory complexity
        """
+
+    return optimize(cities, l, beta=beta, n_iter=n_iter,
+                    mutation_strategy=mutation_strategy, initial_selection_probability=initial_selection_probability,
+                    precompute_pairwise_dist=precompute_pairwise_dist,
+                    verbose=verbose, selected_cities=selected_cities_init)
 
     N = cities.x.shape[0]
     selected_cities=selected_cities_init
@@ -299,7 +420,8 @@ def optimize_with_initialize_betas(cities, l, selected_cities_init, betas=[20,10
         'convex_hull': convex_hull,
         # 'max_points': max_points,
     }
-    
+    state['delaunay'] = scipy.spatial.Delaunay(cities.x) if  mutation_strategy == 4 else None
+
     for k in range (len(betas)):
         beta=betas[k]
 #         print('beta'+str(beta))
