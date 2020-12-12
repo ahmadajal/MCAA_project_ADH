@@ -238,7 +238,7 @@ def step(N, cities, state, beta, l, pairwise_distances, mutation_strategy=0):
         nn = indices[indptr[sampled]:indptr[sampled + 1]]
         k = nn[np.random.randint(0, nn.shape[0])]
     else:
-        k = np.random.randint(0, N)
+        k = np.random.randint(0, cities.x.shape[0])
     remove_city = np.random.rand() < 0.5
 
     selected_cities_i = state['selected']
@@ -506,6 +506,20 @@ def optimize_old(cities, l, beta=100, n_iter=20000, initial_selection_probabilit
         all_selected_cities.append(selected_cities)
 
     return all_selected_cities,fs
+
+
+def optimize_combine(g, l, selected_cities_init, betas=[20,100], n_iter=20000, precompute_pairwise_dist=False, verbose=True):
+    selected_cities_n, selected_cities_n_convex, loss_values1,loss_value_convex = optimize_with_initialize_betas(g, l,selected_cities_init, betas=betas,  n_iter=n_iter,mutation_strategy=3, precompute_pairwise_dist=False, verbose=False)
+    loss_values1[-1]=(loss_value_convex)  
+    if type(selected_cities_n) == list:
+        selected_cities_n = selected_cities_n[-1]
+    selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize_with_initialize_betas(g, l, selected_cities_n_convex, betas=[betas[-1]],n_iter=n_iter,mutation_strategy=2,precompute_pairwise_dist=False, verbose=False)
+    if type(selected_cities_n) == list:
+        selected_cities_n = selected_cities_n[-1]
+    loss_values[-1]=(loss_value_convex) 
+    total_loss=np.concatenate((loss_values1,loss_values))
+    total_loss=total_loss[::2]
+    return selected_cities_n,selected_cities_n_convex,total_loss,loss_value_convex
 
 
 # Old code
