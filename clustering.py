@@ -210,7 +210,6 @@ def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=100
     #set number of steps
     N=g.x.shape[0]
     step_cluster=np.int(np.floor(np.log10(N)))
-    true_step_cluster=min(3,np.int(np.floor(np.log10(N)))-1)
     print('number of steps= '+str(step_cluster))
     betas=[betas_init]
     totalLoss=[]
@@ -284,6 +283,6 @@ def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=100
         plt.ylabel('Loss')
         plt.xlabel('Iterations')
         plt.title('Loss Evolution')  
-    totalLoss=totalLoss[::(true_step_cluster+1)]
+    totalLoss=totalLoss[::(step_cluster+1)]
     #return selected_cities_n_result,selected_cities_n_convex,totalLoss,loss_value_convex
     return selected_cities_n_result,selected_cities_n_convex,loss_values,loss_value_convex
