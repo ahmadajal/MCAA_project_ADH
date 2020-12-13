@@ -69,10 +69,9 @@ def adding_convex_points(N, l, cities, state):
 
 def adding_convex_points_loss(N, l, cities,selected_cities,convex_hull,max_distance):
     # Delio: Recomputing all these quantities seems to fix the issues
-    # selected_cities_pos = cities.x[selected_cities == 1, :]
-    # convex_hull = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
-    # max_distance = np.max(scipy.spatial.distance.pdist(convex_hull, 'sqeuclidean'))
-
+    selected_cities_pos = cities.x[selected_cities == 1, :]
+    convex_hull = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
+    max_distance = np.max(scipy.spatial.distance.pdist(convex_hull, 'sqeuclidean'))
 
     hull_path = Path(convex_hull)
     is_in_hv=hull_path.contains_points(cities.x)
