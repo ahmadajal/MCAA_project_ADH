@@ -217,7 +217,7 @@ def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=100
     ind_old=[]
     best_selected_cities_N=np.zeros(N)
 
-    for stepi in range (0,true_step_cluster):
+    for stepi in range (0,step_cluster):
         betas=[betas[0]+10]
         nclusters=N//(10**(step_cluster-1-stepi))
         print('step = '+str(stepi)+', N clusters= '+str(nclusters))
