@@ -206,18 +206,17 @@ def do_optimization_cluster(g, l, betas_init=20, beta_last=50, n_iter=10000, mut
     #return selected_cities_n_result,selected_cities_n_convex,totalLoss,loss_value_convex
 
 
-def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=10000, mutation_strategy=1, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True, show=False):
+def do_optimization_cluster_simple(g, l, beta_init=20, n_iter=10000, mutation_strategy=1, initial_selection_probability=0.5, precompute_pairwise_dist=False, verbose=True, show=False):
     #set number of steps
     N=g.x.shape[0]
     step_cluster=np.int(np.floor(np.log10(N)))
     print('number of steps= '+str(step_cluster))
-    betas=[betas_init]
+    beta=beta_init
     totalLoss=[]
     ind_old=[]
     best_selected_cities_N=np.zeros(N)
 
     for stepi in range (0,step_cluster):
-        betas=[betas[0]+10]
         nclusters=N//(10**(step_cluster-1-stepi))
         print('step = '+str(stepi)+', N clusters= '+str(nclusters))
                     
@@ -255,7 +254,7 @@ def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=100
             print('f of initializing state = '+str(f))
             
         np.random.seed()
-        selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize_cluster(N,g_clusters, l, selected_cities, betas=betas, 
+        selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize_cluster(N,g_clusters, l, selected_cities, betas=[beta], 
                                                   n_iter=n_iter,mutation_strategy=mutation_strategy, initial_selection_probability=initial_selection_probability, verbose=False)  
         if type(selected_cities_n) == list:
             selected_cities_n = selected_cities_n[-1]
@@ -269,20 +268,22 @@ def do_optimization_cluster_simple(g, l, betas_init=20, beta_last=50, n_iter=100
             plotResult(g_clusters,0,selected_cities_n,selected_cities_n_convex,loss_values,loss_value_convex,None,verbose=False)
         
         totalLoss=np.concatenate((totalLoss,loss_values))
+        beta=beta+10
 
-    print('\n Last step, N= '+str(N))
-    selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize(g, l, selected_cities=np.array(best_selected_cities_N), beta=beta_last, n_iter=n_iter,mutation_strategy=mutation_strategy, initial_selection_probability=initial_selection_probability, precompute_pairwise_dist=False, verbose=False)
-    if type(selected_cities_n) == list:
-        selected_cities_n_result = np.array(selected_cities_n[-1])
+#     print('\n Last step, N= '+str(N))
+#     selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize(g, l, selected_cities=np.array(best_selected_cities_N), beta=beta, n_iter=n_iter,mutation_strategy=mutation_strategy, initial_selection_probability=initial_selection_probability, precompute_pairwise_dist=False, verbose=False)
+#     if type(selected_cities_n) == list:
+#         selected_cities_n_result = np.array(selected_cities_n[-1])
     
-    totalLoss=np.concatenate((totalLoss,loss_values))
+#     totalLoss=np.concatenate((totalLoss,loss_values))
     if show:  
-        plotResult(g,0,selected_cities_n_convex,selected_cities_n_convex,loss_values,loss_value_convex,None)
+        plotResult(g,0,selected_cities_n,selected_cities_n_convex,loss_values,loss_value_convex,None)
         plt.figure()
         plt.plot(totalLoss)
         plt.ylabel('Loss')
         plt.xlabel('Iterations')
         plt.title('Loss Evolution')  
     totalLoss=totalLoss[::(step_cluster+1)]
+    
     #return selected_cities_n_result,selected_cities_n_convex,totalLoss,loss_value_convex
-    return selected_cities_n_result,selected_cities_n_convex,loss_values,loss_value_convex
+    return selected_cities_n,selected_cities_n_convex,loss_values,loss_value_convex
