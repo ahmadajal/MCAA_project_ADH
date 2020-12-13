@@ -82,7 +82,7 @@ def step(N, cities, state, beta, l, use_kd_tree=True):
 def optimize(cities, l, beta=100, n_iter=20000, verbose=True, use_kd_tree=True):
 
     if not callable(beta):
-        def beta_fn(_):
+        def beta_fn(_1,_2):
             return beta
     else:
         beta_fn = beta
@@ -116,7 +116,7 @@ def optimize(cities, l, beta=100, n_iter=20000, verbose=True, use_kd_tree=True):
     all_selected_cities = []
     for m in it:
         fs[m] = state['loss_value']
-        state = step(N, cities, state, beta_fn(m), l, use_kd_tree=use_kd_tree)
+        state = step(N, cities, state, beta_fn(m, n_iter), l, use_kd_tree=use_kd_tree)
         if N <= 20000:
             all_selected_cities.append(state['selected'])
 

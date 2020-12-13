@@ -28,12 +28,16 @@ class G1(DatasetGenerator):
     def refresh(self):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = st.uniform().rvs((self.N,))
+    def __str__(self):
+        return "G1"
 
 
 class G2(DatasetGenerator):
     def refresh(self):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
+    def __str__(self):
+        return "G2"
 
 def find_most_dense_cluster(cities, n_cluster=10):
     # Finds the cluster of cities with maximum density
@@ -279,7 +283,7 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
        """
     # Allow beta to be a function depending on the iteration count i
     if not callable(beta):
-        def beta_fn(i): return beta
+        def beta_fn(_1,_2): return beta
     else:
         beta_fn = beta
 
@@ -322,7 +326,7 @@ def optimize(cities, l, beta=100, n_iter=20000, mutation_strategy=0, initial_sel
 
     for m in it:
         fs[m] = state['loss_value']
-        state = step(N, cities, state, beta_fn(m), l, pairwise_distances,
+        state = step(N, cities, state, beta_fn(m, n_iter), l, pairwise_distances,
                      mutation_strategy=mutation_strategy)
 
         # Delio: Recomputing the convex_hull for strategy 3 seems to fix some issues?
