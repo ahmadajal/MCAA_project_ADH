@@ -74,6 +74,12 @@ def add_points_in_convex_hull(l, cities, selected_cities):
     l: lambda, cities: cities of the current problem selected_cities: 1 hot array of selected cities"""
     N = cities.x.shape[0]
     selected_cities_pos = cities.x[selected_cities == 1, :]
+    if len(selected_cities_pos)<3:
+        max_distance=0
+        if len(selected_cities_pos)==2:
+            max_distance = np.sum((selected_cities_pos[0] - selected_cities_pos[1]) ** 2)
+        loss = -np.sum(cities.v[selected_cities == 1]) + l * N * max_distance * np.pi / 4
+        return selected_cities,loss
     convex_hull = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]
     max_distance = np.max(scipy.spatial.distance.pdist(convex_hull, 'sqeuclidean'))
     hull_path = Path(convex_hull)
