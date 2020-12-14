@@ -5,6 +5,8 @@ import tqdm.notebook
 
 from util import *
 
+"""This file contains the implementation of our baseline Metropolis implementation based on
+   just randomly adding and removing individual cities"""
 
 def step(cities, state, beta, l):
     current_loss_value = state['loss_value']

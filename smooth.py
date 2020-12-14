@@ -7,8 +7,13 @@ from util import *
 import neighbors
 import baseline
 
+"""This file contains the implementation of our best optimization strategy based on a continuous Markov chain
+   modifying the parameters of a circle"""
+
 
 def get_cities_in_circle(cities, kd_tree, center, radius):
+    """Return all the cities inside a given circle. Uses a KD-tree if provided"""
+
     if kd_tree is not None:
         selected = np.array(kd_tree.query_ball_point(center, float(radius))).astype(np.int32)
     else:

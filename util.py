@@ -8,6 +8,8 @@ import scipy as sp
 import scipy.stats as st
 from scipy.spatial import ConvexHull
 
+"""This file contains various utility functions to evaluate the loss function efficiently and generate data sets"""
+
 
 class DatasetGenerator(object):
     def __init__(self, N=100):
@@ -24,6 +26,7 @@ class G1(DatasetGenerator):
     def refresh(self):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = st.uniform().rvs((self.N,))
+
     def __str__(self):
         return "G1"
 
@@ -32,6 +35,7 @@ class G2(DatasetGenerator):
     def refresh(self):
         self.x = st.uniform().rvs((self.N, 2))
         self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
+
     def __str__(self):
         return "G2"
 
@@ -43,6 +47,7 @@ def create_beta_fun(beta):
         return beta_fn
     else:
         return beta
+
 
 def maximum_dist(cities_pos):
     if cities_pos.shape[0] > 2:
@@ -65,7 +70,8 @@ def objective_function(l, cities, selected_cities):
 
 
 def add_points_in_convex_hull(l, cities, selected_cities):
-    """l: lambda, cities: cities of the current problem selected_cities: 1 hot array of selected cities"""
+    """Adds all cities inside the convex hull of the current selection.
+    l: lambda, cities: cities of the current problem selected_cities: 1 hot array of selected cities"""
     N = cities.x.shape[0]
     selected_cities_pos = cities.x[selected_cities == 1, :]
     convex_hull = selected_cities_pos[ConvexHull(selected_cities_pos).vertices, :]

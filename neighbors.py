@@ -36,6 +36,8 @@ def optimize(cities, l, beta, n_iter, verbose=True):
     selected_cities = np.zeros(cities.x.shape[0], np.int32)
     current_loss_value = objective_function(l, cities, selected_cities)
     state = {'selected': selected_cities, 'loss_value': current_loss_value}
+
+    # The delaunay triangulation is used for efficient neighbor queries
     state['delaunay'] = scipy.spatial.Delaunay(cities.x)
     best_loss = np.inf
     number_of_selected_cities = []
