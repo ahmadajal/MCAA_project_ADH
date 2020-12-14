@@ -13,31 +13,6 @@ import tqdm.notebook
 from sklearn.cluster import KMeans
 import copy
 
-class DatasetGenerator(object):
-    def __init__(self, N=100):
-        self.N = N
-        self.x = None
-        self.v = None
-        self.refresh()
-
-    def refresh(self):
-        raise Exception("undefined")
-
-
-class G1(DatasetGenerator):
-    def refresh(self):
-        self.x = st.uniform().rvs((self.N, 2))
-        self.v = st.uniform().rvs((self.N,))
-    def __str__(self):
-        return "G1"
-
-
-class G2(DatasetGenerator):
-    def refresh(self):
-        self.x = st.uniform().rvs((self.N, 2))
-        self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
-    def __str__(self):
-        return "G2"
 
 def find_most_dense_cluster(cities, n_cluster=10):
     # Finds the cluster of cities with maximum density
@@ -100,7 +75,7 @@ def square_to_condensed(i, j, n):
 def square_to_condensed_list(I, J, n):
     l=[]
     for i in I:
-        for j in J: 
+        for j in J:
             assert i != j, "no diagonal elements in condensed matrix"
             i2,j2=i,j
             if i < j:
@@ -513,13 +488,13 @@ def optimize_old(cities, l, beta=100, n_iter=20000, initial_selection_probabilit
 
 def optimize_combine(g, l, selected_cities_init, betas=[20,100], n_iter=20000, precompute_pairwise_dist=False, verbose=True):
     selected_cities_n, selected_cities_n_convex, loss_values1,loss_value_convex = optimize_with_initialize_betas(g, l,selected_cities_init, betas=betas,  n_iter=n_iter,mutation_strategy=3, precompute_pairwise_dist=False, verbose=False)
-    loss_values1[-1]=(loss_value_convex)  
+    loss_values1[-1]=(loss_value_convex)
     if type(selected_cities_n) == list:
         selected_cities_n = selected_cities_n[-1]
     selected_cities_n, selected_cities_n_convex, loss_values,loss_value_convex = optimize_with_initialize_betas(g, l, selected_cities_n_convex, betas=[betas[-1]],n_iter=n_iter,mutation_strategy=2,precompute_pairwise_dist=False, verbose=False)
     if type(selected_cities_n) == list:
         selected_cities_n = selected_cities_n[-1]
-    loss_values[-1]=(loss_value_convex) 
+    loss_values[-1]=(loss_value_convex)
     total_loss=np.concatenate((loss_values1,loss_values))
     total_loss=total_loss[::2]
     return selected_cities_n,selected_cities_n_convex,total_loss,loss_value_convex

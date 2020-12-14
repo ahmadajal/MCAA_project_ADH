@@ -9,6 +9,33 @@ import scipy.stats as st
 from scipy.spatial import ConvexHull
 
 
+class DatasetGenerator(object):
+    def __init__(self, N=100):
+        self.N = N
+        self.x = None
+        self.v = None
+        self.refresh()
+
+    def refresh(self):
+        raise Exception("undefined")
+
+
+class G1(DatasetGenerator):
+    def refresh(self):
+        self.x = st.uniform().rvs((self.N, 2))
+        self.v = st.uniform().rvs((self.N,))
+    def __str__(self):
+        return "G1"
+
+
+class G2(DatasetGenerator):
+    def refresh(self):
+        self.x = st.uniform().rvs((self.N, 2))
+        self.v = np.exp(st.norm(-0.85, 1.3).rvs((self.N,)))
+    def __str__(self):
+        return "G2"
+
+
 def create_beta_fun(beta):
     if not callable(beta):
         def beta_fn(_1, _2):
