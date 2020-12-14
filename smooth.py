@@ -24,21 +24,21 @@ def get_cities_in_circle(cities, kd_tree, center, radius):
     return selected_ret
 
 
-def step(cities, state, beta, l):
+def step(cities, state, beta, l, rng):
     current_loss_value = state['loss_value']
-    if np.random.rand() < 0.5:
-        if np.random.rand() < 0.95:
-            new_center = (state['center'] + np.random.randn(2) * 0.04) % 1
+    if rng.rand() < 0.5:
+        if rng.rand() < 0.95:
+            new_center = (state['center'] + rng.randn(2) * 0.04) % 1
         else:
-            new_center = (state['center'] + np.random.randn(2) * 0.2) % 1
+            new_center = (state['center'] + rng.randn(2) * 0.2) % 1
         new_radius = state['radius']
     else:
         new_center = state['center']
-        new_radius = np.maximum(0.01, state['radius'] + np.random.randn(1) * state['radius'] * 0.1)
+        new_radius = np.maximum(0.01, state['radius'] + rng.randn(1) * state['radius'] * 0.1)
 
     selected_cities_k = get_cities_in_circle(cities, state['kdtree'], new_center, new_radius)
     new_loss_value = objective_function(l, cities, selected_cities_k)
-    accepted = np.random.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
+    accepted = rng.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
 
     if accepted:
         state['selected'] = selected_cities_k
@@ -48,11 +48,14 @@ def step(cities, state, beta, l):
     return state
 
 
-def optimize(cities, l, beta, n_iter, verbose=True):
+def optimize(cities, l, beta, n_iter, verbose=True, rng=None):
+    if rng is None:
+        rng = np.random
+
     use_kd_tree = True
     beta_fn = create_beta_fun(beta)
-    initial_center = np.random.rand(2)
-    initial_radius = np.sqrt(np.random.rand(1) * 0.2 + 0.1)
+    initial_center = rng.rand(2)
+    initial_radius = np.sqrt(rng.rand(1) * 0.2 + 0.1)
 
     # max_index = np.argmax(cities.v)
     # initial_center = cities.x[max_index, :]
@@ -80,9 +83,9 @@ def optimize(cities, l, beta, n_iter, verbose=True):
             state['loss_value'] = best_loss
 
         if m < ratio * n_iter:
-            state = step(cities, state, beta_fn(m, n_iter), l)
+            state = step(cities, state, beta_fn(m, n_iter), l, rng=rng)
         else:
-            state = neighbors.step(cities, state, 15, l)
+            state = neighbors.step(cities, state, 15, l, rng=rng)
         if state['loss_value'] < best_loss:
             best_loss = state['loss_value']
             best_selection = state['selected']

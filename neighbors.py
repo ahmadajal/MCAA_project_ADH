@@ -7,24 +7,26 @@ from util import *
 
 """This optimization strategy more frequently considers direct neighbors of currently selected vertices for flipping"""
 
-def step(cities, state, beta, l):
+def step(cities, state, beta, l, rng=None):
+    if rng is None:
+        rng = np.random
     current_loss_value = state['loss_value']
-    k = np.random.randint(cities.x.shape[0])
+    k = rng.randint(cities.x.shape[0])
     n_selected = np.sum(state['selected'])
-    if n_selected > 0 and np.random.rand() < 0.5:
+    if n_selected > 0 and rng.rand() < 0.5:
         # Randomly sample one of the selected cities
-        k = np.random.randint(0, n_selected)
+        k = rng.randint(0, n_selected)
         sampled = np.where(state['selected'] == 1)[0][k]
         tri = state['delaunay']
         indptr, indices = tri.vertex_neighbor_vertices
         nn = indices[indptr[sampled]:indptr[sampled + 1]]
-        k = nn[np.random.randint(0, nn.shape[0])]
+        k = nn[rng.randint(0, nn.shape[0])]
     else:
-        k = np.random.randint(cities.x.shape[0])
+        k = rng.randint(cities.x.shape[0])
     selected_cities_k = np.array(state['selected'])
     selected_cities_k[k] = 1 - selected_cities_k[k]
     new_loss_value = objective_function(l, cities, selected_cities_k)
-    accepted = np.random.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
+    accepted = rng.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
     if accepted:
         state['selected'] = selected_cities_k
         state['loss_value'] = new_loss_value
