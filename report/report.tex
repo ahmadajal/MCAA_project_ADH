@@ -18,8 +18,7 @@
 \lhead{Markov Chains and Algorithmic Applications}
 \rhead{\includegraphics[width=1cm]{images/EPFL.png}}
 
-\newcommand{\selected}{\mathcal{S}}
-\newcommand{\newselected}{\hat{\mathcal{S}}}
+\newcommand{\selected}{\mathcal{S}} \newcommand{\newselected}{\hat{\mathcal{S}}}
 
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
@@ -32,8 +31,8 @@
 % \usepackage[cam,width=30truecm,height=28truecm,center]{crop}
 % \usepackage[textwidth=2cm]{todonotes}
 
-% \providecommand{\mycomment}[3]{\todo[caption={},size=footnotesize,color=#1!20]{\textbf{#2:
-% }#3}}% \providecommand{\inlinecomment}[3]{% {\color{#1}#2: #3}}%
+% \providecommand{\mycomment}[3]{\todo[caption={},size=footnotesize,color=#1!20]{\textbf{#2:}#3}}%
+% \providecommand{\inlinecomment}[3]{% {\color{#1}#2: #3}}%
 % \newcommand\commenter[2]%
 % {%
 %   \expandafter\newcommand\csname i#1\endcsname[1]{\inlinecomment{#2}{#1}{##1}}
@@ -360,7 +359,9 @@ and built-in thread pool.
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth,height=0.5\columnwidth]{images/selected_cities_plot.pdf}
-    \caption{Plots of optimization losses over iterations for all our techniques and visualization of the map of cities and the final solution found by our algorithm (selected cities in red)}
+    \caption{Plots of optimization losses over iterations for all our techniques
+    and visualization of the map of cities and the final solution found by our
+    algorithm (selected cities in red)}
     \label{fig:selection}
 \end{figure}
 
@@ -391,9 +392,11 @@ We ran the Metropolis algorithm with the strategies introduced in Section
 of the distributions $\mathcal{G}_1$ and $\mathcal{G}_2$.
 Figure~\ref{fig:selection} shows the convergence plots for the different
 algorithms run on an example data set with distribution $\mathcal{G}_2$ and $n =
-100$. Figures \ref{fig:loss_plots100} and \ref{fig:loss_plots} show a comparison between our different strategies over different choices of $\lambda$ for the objective function. We can observe that
-the continuous Markov Chain strategy clearly outperforms the other strategies
-and can reach lower values for the objective function.
+100$. Figures \ref{fig:loss_plots100} and \ref{fig:loss_plots} show a comparison
+between our different strategies over different choices of $\lambda$ for the
+objective function. We can observe that the continuous Markov Chain strategy
+clearly outperforms the other strategies and can reach lower values for the
+objective function.
 
 
 \begin{figure}
@@ -404,8 +407,8 @@ and can reach lower values for the objective function.
     different values of $\lambda$. We also plot the expected loss value as we
     change $\lambda$ (bottom). All results have been averaged over 20 different
     random seeds. the total number of cities was $100$ in this experiment. Our
-    continuous Markov chain (here called "Smooth") consistently outperforms all our other
-    implementations.}
+    continuous Markov chain (here called "Smooth") consistently outperforms all
+    our other implementations.}
     \label{fig:loss_plots100}
 \end{figure}
 
@@ -413,14 +416,21 @@ and can reach lower values for the objective function.
 \begin{figure}
     \centering
     \includegraphics[width=\linewidth, trim=55 55 55 55, clip]{images/Expectation_f_num_cities_1000.pdf}
-    \caption{We plot the number of selected cities and expected loss values also for $n=1000$. Again, our continuous Markov chain outperforms the other techniques (the names and ordering of techniques are different from Figure~\ref{fig:loss_plots100} since we did not have time to regenerate this result. }
+    \caption{We plot the number of selected cities and expected loss values also
+    for $n=1000$. Again, our continuous Markov chain outperforms the other
+    techniques (the names and ordering of techniques are different from
+    Figure~\ref{fig:loss_plots100} since we did not have time to regenerate this
+    result.)}
     \label{fig:loss_plots}
 \end{figure}
 
 \begin{figure}
     \centering
     \includegraphics[width=\linewidth]{images/stability.pdf}
-    \caption{Stability of the continuous Markov Chain strategy. The thin light-colored lines show each of the 20 runs of the algorithm with different initializations. The bold dark-colored lines show the average over all runs.}
+    \caption{Stability of the continuous Markov Chain strategy. The thin
+    light-colored lines show each of the 20 runs of the algorithm with different
+    initializations. The bold dark-colored lines show the average over all
+    runs.}
     \label{fig:stability}
 \end{figure}
 
