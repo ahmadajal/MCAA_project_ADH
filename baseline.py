@@ -20,12 +20,7 @@ def step(cities, state, beta, l):
 
 
 def optimize(cities, l, beta, n_iter, verbose=True):
-    if not callable(beta):
-        def beta_fn(_1, _2):
-            return beta
-    else:
-        beta_fn = beta
-
+    beta_fn = create_beta_fun(beta)
     selected_cities = np.zeros(cities.x.shape[0], np.int32)
     current_loss_value = objective_function(l, cities, selected_cities)
     state = {'selected': selected_cities, 'loss_value': current_loss_value}

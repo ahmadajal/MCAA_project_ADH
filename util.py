@@ -9,6 +9,14 @@ import scipy.stats as st
 from scipy.spatial import ConvexHull
 
 
+def create_beta_fun(beta):
+    if not callable(beta):
+        def beta_fn(_1, _2):
+            return beta
+        return beta_fn
+    else:
+        return beta
+
 def maximum_dist(cities_pos):
     if cities_pos.shape[0] > 2:
         max_distance = np.max(scipy.spatial.distance.pdist(

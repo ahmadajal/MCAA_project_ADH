@@ -56,12 +56,7 @@ def step_flip(cities, state, beta, l):
 
 def optimize(cities, l, beta, n_iter, verbose=True):
     use_kd_tree = True
-    if not callable(beta):
-        def beta_fn(_1, _2):
-            return beta
-    else:
-        beta_fn = beta
-
+    beta_fn = create_beta_fun(beta)
     initial_center = np.random.rand(2)
     initial_radius = np.sqrt(np.random.rand(1) * 0.03 + 0.2)
     kd_tree = scipy.spatial.cKDTree(cities.x) if use_kd_tree else None
