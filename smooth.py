@@ -77,7 +77,7 @@ def optimize(cities, l, beta, n_iter, verbose=True, rng=None):
     it = tqdm.notebook.tqdm(range(n_iter)) if verbose else range(n_iter)
     for m in it:
         loss_values[m] = state['loss_value']
-        number_of_selected_cities.append(len(state['selected']))
+        number_of_selected_cities.append(np.sum(state['selected']))
         if m == np.round(ratio * n_iter):
             state['selected'] = best_selection
             state['loss_value'] = best_loss
@@ -96,5 +96,5 @@ def optimize(cities, l, beta, n_iter, verbose=True, rng=None):
         best_selection, best_loss = add_points_in_convex_hull(l, cities, best_selection)
 
     loss_values[-1] = best_loss
-    number_of_selected_cities[-1] = len(best_selection)
+    number_of_selected_cities[-1] = np.sum(best_selection)
     return best_selection, loss_values, number_of_selected_cities
