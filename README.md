@@ -12,7 +12,7 @@ The code is structured as follows:
 
 
 ## Requirements
-The code has been tested Python 3.8.5. The code requires `numpy`, `jupyter`, `scipy`, `matplotlib` and `tqdm` to be installed, e.g. using
+The code has been tested using Python 3.8.5. The code requires `numpy`, `jupyter`, `scipy`, `matplotlib` and `tqdm` to be installed, e.g. using
 ```
 pip install numpy scipy jupyter matplotlib tqdm
 ```
