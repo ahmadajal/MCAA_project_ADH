@@ -4,15 +4,20 @@ import tqdm.notebook
 
 from util import *
 
-"""This file contains the implementation of our baseline Metropolis implementation based on
-   just randomly adding and removing individual cities"""
+"""This file contains the implementation of our convex hull based strategy:
+   It randomly selects cities, but considers all cities in their convex hull when computing the loss function"""
 
 def step(cities, state, beta, l):
     current_loss_value = state['loss_value']
     k = np.random.randint(cities.x.shape[0])
     selected_cities_k = np.array(state['selected'])
     selected_cities_k[k] = 1 - selected_cities_k[k]
-    new_loss_value = objective_function(l, cities, selected_cities_k)
+
+    if np.sum(selected_cities_k) >= 3:
+        selected_cities_k, new_loss_value = add_points_in_convex_hull(l, cities, selected_cities_k)
+    else:
+        new_loss_value = objective_function(l, cities, selected_cities_k)
+
     accepted = np.random.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
     if accepted:
         state['selected'] = selected_cities_k
