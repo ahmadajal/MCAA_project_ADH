@@ -38,7 +38,7 @@ def optimize(cities, l, beta, n_iter, verbose=True):
 
     state['loss_value'] = best_loss
     state['selected'] = best_selection
-    if len(state['selected']) >= 3:
+    if np.sum(state['selected']) >= 3:
         best_selection, best_loss = add_points_in_convex_hull(l, cities, best_selection)
 
     loss_values[-1] = best_loss
