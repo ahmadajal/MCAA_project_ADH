@@ -1,6 +1,6 @@
 # Deploying a 5G Network Project
 
-This folder contains the code for the "Deployin a 5G network" project by Heloise Dupont de Dinechin, Ahmad Ajalloeian and Delio Vicini.
+This folder contains the code for the "Deployin a 5G network" project by Heloise Dupont de Dinechin, Ahmad Ajalloeian and Delio Vicini (team name: DHA)
 
 ## Structure
 The code is structured as follows:
