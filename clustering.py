@@ -228,7 +228,7 @@ def optimize_simple(g, l, beta=20, beta_last=40, n_iter=10000, mutation_strategy
     best_selected_cities_N=np.zeros(N)
     mutation_strategy=1
     betas_init=beta
-    beta_fn = util.create_beta_fun(beta)
+    #beta_fn = util.create_beta_fun(beta)
 
     for stepi in range (0,step_cluster):
         nclusters=N//(10**(step_cluster-1-stepi))
