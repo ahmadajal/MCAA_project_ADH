@@ -154,9 +154,9 @@ def do_optimization_cluster(g, l, betas_init=20, beta_last=50, n_iter=10000, mut
         g_clusters=G1(N)
         g_clusters.x=np.array(centroids)
         g_clusters.v=np.array(centroids_V)
-
+             
         if stepi>0 :
-            selected_cities=[np.sum((clx==k)*(is_in_selected_cluster))==(sum(clx==k)/2) for k in range (nclusters)]
+            #selected_cities=[np.sum((clx==k)*(is_in_selected_cluster))==(sum(clx==k)/2) for k in range (nclusters)]
             selected_cities=np.array(selected_cities)
             for k in range (nclusters):
                 in_cluster=clx==k
@@ -164,7 +164,7 @@ def do_optimization_cluster(g, l, betas_init=20, beta_last=50, n_iter=10000, mut
                 good_cities=in_cluster*is_in_selected_cluster
                 if np.sum(good_cities)==(sum(in_cluster)):
                     selected_cities[k]=1
-
+                    
         best_selected_cities_N=np.array([selected_cities[clx[k]] for k in range (N)])
         if show:
             f = objective_function_simple(N, l, g, best_selected_cities_N,pairwise_distances=None)
@@ -180,7 +180,7 @@ def do_optimization_cluster(g, l, betas_init=20, beta_last=50, n_iter=10000, mut
 
         if show:
             fig,axes=plt.subplots(1,2,figsize=(12,4))
-            axes[0].scatter(data[:,0],data[:,1],c=clx ,label='cities')
+            axes[0].scatter(g.x[:,0],g.x[:,1],c=clx ,label='cities')
             sequence = np.arange(centroids.shape[0])
             axes[1].scatter(centroids[:, 0], centroids[:, 1], c=sequence,label='centroids')
             plotResult(g_clusters,0,selected_cities_n,selected_cities_n_convex,loss_values,loss_value_convex,None,verbose=False)
