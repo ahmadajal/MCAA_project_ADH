@@ -4,6 +4,8 @@ import tqdm
 import tqdm.notebook
 
 from util import *
+import neighbors
+import baseline
 
 
 def get_cities_in_circle(cities, kd_tree, center, radius):
@@ -41,29 +43,26 @@ def step(cities, state, beta, l):
     return state
 
 
-def step_flip(cities, state, beta, l):
-    current_loss_value = state['loss_value']
-    k = np.random.randint(cities.x.shape[0])
-    selected_cities_k = np.array(state['selected'])
-    selected_cities_k[k] = 1 - selected_cities_k[k]
-    new_loss_value = objective_function(l, cities, selected_cities_k)
-    accepted = np.random.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
-    if accepted:
-        state['selected'] = selected_cities_k
-        state['loss_value'] = new_loss_value
-    return state
-
-
 def optimize(cities, l, beta, n_iter, verbose=True):
     use_kd_tree = True
     beta_fn = create_beta_fun(beta)
     initial_center = np.random.rand(2)
-    initial_radius = np.sqrt(np.random.rand(1) * 0.03 + 0.2)
+    initial_radius = np.sqrt(np.random.rand(1) * 0.2 + 0.1)
+
+    # max_index = np.argmax(cities.v)
+    # initial_center = cities.x[max_index, :]
+
     kd_tree = scipy.spatial.cKDTree(cities.x) if use_kd_tree else None
     selected_cities = get_cities_in_circle(cities, kd_tree, initial_center, initial_radius)
     current_loss_value = objective_function(l, cities, selected_cities)
     state = {'selected': selected_cities, 'loss_value': current_loss_value,
              'center': initial_center, 'radius': initial_radius, 'kdtree': kd_tree}
+
+    # Ratio of iterations used for smooth version, the rest of iterations will use a flipping strategy
+    ratio = 0.85
+    if ratio < 1:
+        state['delaunay'] = scipy.spatial.Delaunay(cities.x)
+
     best_loss = np.inf
     number_of_selected_cities = []
     loss_values = np.zeros(n_iter)
@@ -71,10 +70,14 @@ def optimize(cities, l, beta, n_iter, verbose=True):
     for m in it:
         loss_values[m] = state['loss_value']
         number_of_selected_cities.append(len(state['selected']))
-        if m < 0.8 * n_iter:
+        if m == np.round(ratio * n_iter):
+            state['selected'] = best_selection
+            state['loss_value'] = best_loss
+
+        if m < ratio * n_iter:
             state = step(cities, state, beta_fn(m, n_iter), l)
         else:
-            state = step_flip(cities, state, 5, l)
+            state = neighbors.step(cities, state, 15, l)
         if state['loss_value'] < best_loss:
             best_loss = state['loss_value']
             best_selection = state['selected']
