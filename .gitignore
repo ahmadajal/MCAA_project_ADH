@@ -1,3 +1,6 @@
+# inputs and outputs
+*.csv
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
