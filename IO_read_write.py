@@ -11,11 +11,11 @@ def input_read(path_to_file):
     return g
 
 def write_output(selected_cites, output_file_name):
-    d = {"id": np.arange(1, len(selected_cites)+1),
+    d = {"id": np.arange(len(selected_cites)),
         "include": selected_cites.astype(int)}
     df = pd.DataFrame(d)
     df.to_csv(output_file_name+".csv", index=False)
-    
+
 def read_output(path_to_file):
     df = pd.read_csv(path_to_file)
     return np.array(df["include"])
