@@ -15,3 +15,7 @@ def write_output(selected_cites, output_file_name):
         "selected": selected_cites.astype(int)}
     df = pd.DataFrame(d)
     df.to_csv(output_file_name+".csv", header=False, index=False)
+    
+def read_output(path_to_file):
+    df = pd.read_csv(path_to_file, header=None)
+    return np.array(df[1])
