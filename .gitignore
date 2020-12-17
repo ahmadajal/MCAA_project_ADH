@@ -1,5 +1,8 @@
 # inputs and outputs
-*.csv
+outputs/*.csv
+results/*.csv
+outputs
+results
 
 # Jupyter Notebook
 .ipynb_checkpoints
