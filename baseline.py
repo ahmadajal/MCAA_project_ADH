@@ -7,13 +7,13 @@ from util import *
 """This file contains the implementation of our baseline Metropolis implementation based on
    just randomly adding and removing individual cities"""
 
-def step(cities, state, beta, l):
+def step(cities, state, beta, l, rng=np.random):
     current_loss_value = state['loss_value']
-    k = np.random.randint(cities.x.shape[0])
+    k = rng.randint(cities.x.shape[0])
     selected_cities_k = np.array(state['selected'])
     selected_cities_k[k] = 1 - selected_cities_k[k]
     new_loss_value = objective_function(l, cities, selected_cities_k)
-    accepted = np.random.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
+    accepted = rng.rand() < np.minimum(1, np.exp(-beta * (new_loss_value - current_loss_value)))
     if accepted:
         state['selected'] = selected_cities_k
         state['loss_value'] = new_loss_value

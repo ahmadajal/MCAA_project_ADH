@@ -85,7 +85,8 @@ def optimize(cities, l, beta, n_iter, verbose=True, rng=None):
         if m < ratio * n_iter:
             state = step(cities, state, beta_fn(m, n_iter), l, rng=rng)
         else:
-            state = neighbors.step(cities, state, 15, l, rng=rng)
+            # state = neighbors.step(cities, state, 15, l, rng=rng)
+            state = baseline.step(cities, state, 15, l, rng=rng)
         if state['loss_value'] < best_loss:
             best_loss = state['loss_value']
             best_selection = state['selected']
